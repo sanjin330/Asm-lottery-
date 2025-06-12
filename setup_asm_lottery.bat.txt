@@ -1,0 +1,156 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASM 幸运转盘抽奖</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>ASM 幸运转盘抽奖</h1>
+
+  <div class="wheel-container">
+    <canvas id="wheel" width="500" height="500"></canvas>
+    <button id="spinBtn">开始抽奖</button>
+  </div>
+
+  <div id="result" class="result"></div>
+
+  <audio id="spinSound" src="spin.mp3"></audio>
+
+  <script src="main.js"></script>
+</body>
+</html>
+
+<!-- style.css -->
+body {
+  font-family: "Microsoft YaHei", sans-serif;
+  text-align: center;
+  background: #f0f0f0;
+  padding: 20px;
+}
+
+h1 {
+  margin-bottom: 20px;
+}
+
+.wheel-container {
+  position: relative;
+  display: inline-block;
+}
+
+#wheel {
+  border: 5px solid #333;
+  border-radius: 50%;
+  background: #fff;
+}
+
+#spinBtn {
+  margin-top: 15px;
+  padding: 10px 20px;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.result {
+  margin-top: 30px;
+  font-size: 24px;
+  font-weight: bold;
+  color: #e91e63;
+}
+
+<!-- main.js -->
+const wheel = document.getElementById("wheel");
+const ctx = wheel.getContext("2d");
+const spinBtn = document.getElementById("spinBtn");
+const resultDiv = document.getElementById("result");
+const spinSound = document.getElementById("spinSound");
+
+const prizes = [
+  { label: "Rs. 100", probability: 0.30, color: "#f44336" },
+  { label: "Rs. 234", probability: 0.25, color: "#e91e63" },
+  { label: "Rs. 345", probability: 0.20, color: "#9c27b0" },
+  { label: "Rs. 456", probability: 0.11, color: "#673ab7" },
+  { label: "Rs. 777", probability: 0.08, color: "#3f51b5" },
+  { label: "Rs. 999", probability: 0.07, color: "#2196f3" },
+  { label: "Rs. 1666", probability: 0.04, color: "#03a9f4" },
+  { label: "Rs. 7654", probability: 0.01, color: "#00bcd4" },
+];
+
+const arcSize = (2 * Math.PI) / prizes.length;
+let startAngle = 0;
+let spinning = false;
+
+function drawWheel() {
+  for (let i = 0; i < prizes.length; i++) {
+    const angle = startAngle + i * arcSize;
+    ctx.beginPath();
+    ctx.moveTo(250, 250);
+    ctx.arc(250, 250, 240, angle, angle + arcSize);
+    ctx.fillStyle = prizes[i].color;
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.save();
+    ctx.fillStyle = "#fff";
+    ctx.translate(
+      250 + Math.cos(angle + arcSize / 2) * 180,
+      250 + Math.sin(angle + arcSize / 2) * 180
+    );
+    ctx.rotate(angle + arcSize / 2 + Math.PI / 2);
+    ctx.font = "bold 20px Microsoft YaHei";
+    ctx.fillText(prizes[i].label, -ctx.measureText(prizes[i].label).width / 2, 0);
+    ctx.restore();
+  }
+}
+
+function getPrizeIndexByProbability() {
+  const rand = Math.random();
+  let sum = 0;
+  for (let i = 0; i < prizes.length; i++) {
+    sum += prizes[i].probability;
+    if (rand <= sum) return i;
+  }
+  return prizes.length - 1;
+}
+
+function spin() {
+  if (spinning) return;
+  spinning = true;
+  resultDiv.textContent = "";
+
+  spinSound.currentTime = 0;
+  spinSound.play();
+
+  const prizeIndex = getPrizeIndexByProbability();
+  const spins = 5;
+  const targetAngle =
+    2 * Math.PI * spins - (prizeIndex * arcSize + arcSize / 2) + Math.PI / 2;
+
+  let start = null;
+
+  function animate(timestamp) {
+    if (!start) start = timestamp;
+    const elapsed = timestamp - start;
+    const duration = 3000;
+    const progress = Math.min(elapsed / duration, 1);
+    const easeOut = 1 - Math.pow(1 - progress, 3);
+    startAngle = targetAngle * easeOut;
+
+    ctx.clearRect(0, 0, wheel.width, wheel.height);
+    drawWheel();
+
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      spinning = false;
+      resultDiv.textContent = `恭喜你抽中：${prizes[prizeIndex].label} 🎉`;
+      spinSound.pause();
+    }
+  }
+  requestAnimationFrame(animate);
+}
+
+drawWheel();
+spinBtn.addEventListener("click", spin);
